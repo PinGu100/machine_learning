@@ -1,0 +1,85 @@
+---
+title: "Machine Learning Project"
+author: "Pin Gu"
+date: "November 28, 2016"
+output: html_document
+---
+
+##Introduction
+In this project, we will use data from accelerometers on the belt, forearm, arm, and dumbell of 6 participants to quantify how well the 6 participants do a particular activity.
+
+The project will predict the manner in which they did the exercise.  We will create a report describing how we build the model, how we cross validate the results. We will also use the prediction model to predict 20 different test cases.
+
+##Background
+Using devices such as Jawbone Up, Nike FuelBand, and Fitbit it is now possible to collect a large amount of data about personal activity relatively inexpensively. These type of devices are part of the quantified self movement - a group of enthusiasts who take measurements about themselves regularly to improve their health, to find patterns in their behavior, or because they are tech geeks. One thing that people regularly do is quantify how much of a particular activity they do, but they rarely quantify how well they do it. In this project, your goal will be to use data from accelerometers on the belt, forearm, arm, and dumbell of 6 participants. They were asked to perform barbell lifts correctly and incorrectly in 5 different ways. More information is available from the website here: http://groupware.les.inf.puc-rio.br/har (see the section on the Weight Lifting Exercise Dataset).
+
+
+##Dowdload and clean Data
+###Download data
+```{r}
+trainUrl <- "http://d396qusza40orc.cloudfront.net/predmachlearn/pml-training.csv"
+testUrl <- "http://d396qusza40orc.cloudfront.net/predmachlearn/pml-testing.csv"
+training <- read.csv(url(trainUrl), na.strings=c("NA","#DIV/0!",""))
+testing <- read.csv(url(testUrl), na.strings=c("NA","#DIV/0!",""))
+```
+###Clean Data
+remove column 1 to 7 which are irrelevant to the prediction
+```{r}
+training <- training[,-c(1:7)]
+testing <- testing[,-c(1:7)]
+training$classe <- factor(training$classe)
+```
+
+remove variables with too many NAs
+```{r}
+training<-training[,colSums(is.na(training)) == 0]
+testing <-testing[,colSums(is.na(testing)) == 0]
+```
+
+###Create a cross validation set from training dataset.
+```{r}
+library(caret)
+set.seed(12589762)
+inTrain <- createDataPartition(y=training$classe, p=0.7, list=FALSE)
+trainData <- training[inTrain, ]
+valData <- training[-inTrain, ]
+```
+
+##Prediction Model
+###Model 1:Decision Tree
+```{r}
+library(rpart)
+library(rpart.plot)
+library(rattle)
+modFit_dt<-rpart(classe ~ ., data=trainData, method="class")
+fancyRpartPlot(modFit_dt)
+#rpart.plot(modFit_dt, main="Decision Tree", extra=102, under=TRUE, faclen=0)
+prediction_dt<-predict(modFit_dt, valData, type = "class")
+confusionMatrix(prediction_dt, valData$classe)
+```
+
+###Model 2: Random Forest
+```{r}
+library(randomForest)
+modFit_rf <- randomForest(classe ~. , data=trainData)
+prediction_rf <- predict(modFit_rf, valData, type = "class")
+confusionMatrix(prediction_rf, valData$classe)
+```
+
+**Random Forest model performs better than Decision Tree. Accuracy for Random Forest model was 0.995 compared to Decision Tree model with 0.766.**
+
+###Out-of-sample error for random forest model
+```{r}
+outSampleError <- (1 - as.numeric(confusionMatrix(prediction_rf, valData$classe)$overall[1]))
+outSampleError
+```
+
+##Predict the testing dataset with random forest model
+```{r}
+finalPred<- predict(modFit_rf, testing, type="class")
+finalPred
+```
+
+
+
+
